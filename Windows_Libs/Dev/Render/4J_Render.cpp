@@ -2,8 +2,11 @@
 #include "4J_Render.h"
 #include "Renderer.h"
 
+C4JRender RenderManager;
+
 void C4JRender::Tick()
 {
+	InternalRenderManager.CBuffTick();
 }
 
 void C4JRender::UpdateGamma(unsigned short usGamma)
@@ -474,5 +477,3 @@ void C4JRender::Resume()
 {
 	InternalRenderManager.Resume();
 }
-
-C4JRender RenderManager;
