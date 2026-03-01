@@ -57,7 +57,8 @@ public:
 
 				struct
 				{
-					DirectX::XMMATRIX m_matrix;
+					float m_matrix[16];
+					//DirectX::XMMATRIX m_matrix;
 				} add_matrix;
 
 				struct
@@ -105,7 +106,8 @@ public:
 				struct
 				{
 					int m_light_index;
-					DirectX::XMVECTOR m_direction;
+					float m_direction[3];
+					//DirectX::XMVECTOR m_direction;
 				} set_light_direction;
 
 				struct

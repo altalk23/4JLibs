@@ -7,6 +7,11 @@ public:
 
 	struct DriveMapping
 	{
+		DriveMapping(std::string szDirectoryPath, std::string szMountPath) : m_szDirectoryPath(szDirectoryPath), m_szMountPath(szMountPath)
+		{
+			;
+		}
+
 		std::string m_szDirectoryPath;
 		std::string m_szMountPath;
 	};

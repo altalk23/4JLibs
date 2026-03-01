@@ -73,7 +73,7 @@ C4JStorage::EDLCStatus CDLC::GetInstalledDLC(int iPad, int(*Func)(LPVOID, int, i
 			bool isArt = hFind.dwFileAttributes != -1 && (hFind.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY);
 			if (isArt && hFind.cFileName[0] != '.')
 			{
-				XCONTENT_DATA data{};
+				XCONTENT_DATA data;
 
 				if (ret)
 				{
@@ -116,7 +116,7 @@ DWORD CDLC::MountInstalledDLC(int iPad, DWORD dwDLC, int(*Func)(LPVOID, int, DWO
 	this->m_uiCurrentMappedDLC = dwDLC;
 
 	char* dlcdirPath = m_vInstalledDLCs[m_uiCurrentMappedDLC].szFileName;
-	m_vDLCDriveMappings.push_back({ dlcdirPath, m_szMountPath });
+	m_vDLCDriveMappings.push_back(DriveMapping(dlcdirPath, m_szMountPath));
 
 	m_iHasNewMountedDLCs = true;
 
@@ -125,7 +125,7 @@ DWORD CDLC::MountInstalledDLC(int iPad, DWORD dwDLC, int(*Func)(LPVOID, int, DWO
 
 DWORD CDLC::UnmountInstalledDLC(LPCSTR szMountDrive)
 {
-	LPCSTR szDrive{};
+	LPCSTR szDrive = nullptr;
 
 	if (szMountDrive)
 	{

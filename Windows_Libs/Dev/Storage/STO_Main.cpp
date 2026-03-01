@@ -63,7 +63,7 @@ unsigned int CStorage::UpdateCRC(unsigned int crc, unsigned __int8* buf, int len
 
 void CStorage::DebugPrintf(const char* szFormat, ...)
 {
-    char buf[1024]{};
+    char buf[1024];
 
     va_list va;
     va_start(va, szFormat);

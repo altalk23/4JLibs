@@ -41,8 +41,8 @@ void CSaveGame::ResetSaveData()
 
 C4JStorage::ESaveGameState CSaveGame::GetSavesInfo(int iPad, int (*Func)(LPVOID lpParam, SAVE_DETAILS* pSaveDetails, const bool), LPVOID lpParam, char* pszSavePackName)
 {
-    WIN32_FIND_DATAA findFileData{};
-    WIN32_FILE_ATTRIBUTE_DATA fileInfoBuffer{};
+    WIN32_FIND_DATAA findFileData;
+    WIN32_FILE_ATTRIBUTE_DATA fileInfoBuffer;
 
     if (!m_pSaveDetails)
     {
