@@ -138,8 +138,6 @@ private:
     ID3D11SamplerState *GetManagedSamplerState();
     void DeleteInternalBuffer(int index);
     Renderer::Context &getContext();
-    static D3D11_PRIMITIVE_TOPOLOGY *m_Topologies;
-    static DXGI_FORMAT textureFormats[C4JRender::MAX_TEXTURE_FORMATS];
 public:
     struct Texture
     {
@@ -333,12 +331,12 @@ public:
         DWORD stackPos[MATRIX_MODE_MODELVIEW_MAX];
         DWORD stackType;
         DWORD textureIdx;
-        BYTE faceCullEnabled;
-        BYTE depthTestEnabled;
-        BYTE alphaTestEnabled;
+        bool faceCullEnabled;
+        bool depthTestEnabled;
+        bool alphaTestEnabled;
         float alphaReference;
-        BYTE depthWriteEnabled;
-        BYTE fogEnabled;
+        bool depthWriteEnabled;
+        bool fogEnabled;
         float fogNearDistance;
         float fogFarDistance;
         float fogDensity;
@@ -346,9 +344,9 @@ public:
         float fogColourBlue;
         float fogColourGreen;
         DWORD fogMode;
-        BYTE lightingEnabled;
-        BYTE lightEnabled[2];
-        BYTE lightingDirty;
+        bool lightingEnabled;
+        bool lightEnabled[2];
+        bool lightingDirty;
         DWORD forcedLOD;
         BYTE paddingAfterForceLOD[4];
         DirectX::XMFLOAT4 lightDirection[2];
@@ -378,7 +376,7 @@ public:
         DWORD recordingBufferIndex;
         DWORD recordingVertexType;
         DWORD recordingPrimitiveType;
-        BYTE deferredModeEnabled;
+        bool deferredModeEnabled;
         std::vector<DeferredCBuff> deferredBuffers;
         D3D11_BLEND_DESC blendDesc;
         D3D11_DEPTH_STENCIL_DESC depthStencilDesc;
@@ -387,13 +385,12 @@ public:
     };
 
     static DWORD tlsIdx;
-    static unsigned int s_auiWidths[MAX_MIP_LEVELS + 1];
-    static unsigned int s_auiHeights[MAX_MIP_LEVELS + 1];
-    static D3D11_INPUT_ELEMENT_DESC g_vertex_PTN_Elements_PF3_TF2_CB4_NB4_XW1[5];
-    static D3D11_INPUT_ELEMENT_DESC g_vertex_PTN_Elements_Compressed[2];
-    static D3D11_PRIMITIVE_TOPOLOGY g_topologies[C4JRender::PRIMITIVE_TYPE_COUNT];
-    static int totalAlloc;
     static _RTL_CRITICAL_SECTION totalAllocCS;
+    static DWORD s_auiWidths[];
+    static DWORD s_auiHeights[];
+    static DXGI_FORMAT textureFormats[];
+    static D3D_PRIMITIVE_TOPOLOGY g_topologies[];
+    static int totalAlloc;
 
     float m_fClearColor[4];
     ID3D11Device *m_pDevice;

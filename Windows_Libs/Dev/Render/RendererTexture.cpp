@@ -1,9 +1,10 @@
+#include "stdafx.h"
 #include "Renderer.h"
 #include "libpng/png.h"
 
 unsigned char* dataStart;
-unsigned char* dataCurr;
-unsigned char* dataEnd;
+unsigned char *dataCurr;
+unsigned char *dataEnd;
 
 DXGI_FORMAT Renderer::textureFormats[] = { DXGI_FORMAT_B8G8R8A8_UNORM };
 
@@ -16,16 +17,17 @@ void user_write_data_init(unsigned char* pBuffer, int size)
 
 int user_write_data_bytes_written()
 {
-    return (int)(dataCurr - dataStart);
+    return static_cast<int>(dataCurr - dataStart);
 }
 
-void user_write_data(png_struct_def* png_ptr, unsigned char* data, size_t length)
+void user_write_data(png_struct_def* png_ptr, unsigned char* src, size_t length)
 {
-    int canWrite = (int)(dataEnd - dataCurr);
-    if ((int)length < canWrite)
-        canWrite = (int)length;
-    memcpy(dataCurr, data, canWrite);
-    dataCurr = (unsigned char*)dataCurr + canWrite;
+    int bytesToWrite = static_cast<int>(dataEnd - dataCurr);
+    if (static_cast<int>(length) < bytesToWrite)
+        bytesToWrite = static_cast<int>(length);
+
+    memcpy(dataCurr, src, bytesToWrite);
+    dataCurr += bytesToWrite;
 }
 
 void user_flush_data(png_struct_def* png_ptr)
@@ -51,11 +53,17 @@ int Renderer::TextureCreate()
 
 void Renderer::TextureFree(int idx)
 {
-    m_textures[idx].texture->Release();
-    m_textures[idx].view->Release();
-    m_textures[idx].view = NULL;
+    if (m_textures[idx].texture)
+    {
+        m_textures[idx].texture->Release();
+        m_textures[idx].texture = NULL;
+    }
+    if (m_textures[idx].view)
+    {
+        m_textures[idx].view->Release();
+        m_textures[idx].view = NULL;
+    }
     m_textures[idx].allocated = false;
-    m_textures[idx].texture = NULL;
 }
 
 void Renderer::TextureBind(int idx)
@@ -63,7 +71,7 @@ void Renderer::TextureBind(int idx)
     if (idx == -1)
         idx = defaultTextureIndex;
 
-    Context& c = this->getContext();
+    Context& c = getContext();
 
     if (c.commandBuffer && c.commandBuffer->isActive)
         c.commandBuffer->BindTexture(idx);
@@ -79,7 +87,7 @@ void Renderer::TextureBindVertex(int idx)
     if (idx == -1)
         idx = defaultTextureIndex;
 
-    Context& c = this->getContext();
+    Context& c = getContext();
 
     c.textureIdx = idx;
     c.m_pDeviceContext->VSSetShaderResources(0, 1, &m_textures[idx].view);
@@ -89,19 +97,19 @@ void Renderer::TextureBindVertex(int idx)
 
 void Renderer::TextureSetTextureLevels(int levels)
 {
-    Context& c = this->getContext();
+    Context& c = getContext();
     m_textures[c.textureIdx].mipLevels = levels;
 }
 
 int Renderer::TextureGetTextureLevels()
 {
-    Context& c = this->getContext();
+    Context& c = getContext();
     return m_textures[c.textureIdx].mipLevels;
 }
 
 void Renderer::TextureData(int width, int height, void* data, int level, C4JRender::eTextureFormat format)
 {
-    Context& c = this->getContext();
+    Context& c = getContext();
     int idx = c.textureIdx;
 
     m_textures[idx].textureFormat = format;
@@ -125,13 +133,19 @@ void Renderer::TextureData(int width, int height, void* data, int level, C4JRend
         m_pDevice->CreateShaderResourceView(m_textures[idx].texture, NULL, &m_textures[idx].view);
     }
 
-    c.m_pDeviceContext->UpdateSubresource(m_textures[idx].texture, level, NULL,
-        data, width * 4, width * height * 4);
+    c.m_pDeviceContext->UpdateSubresource(
+        m_textures[idx].texture, 
+        level, 
+        NULL, 
+        data, 
+        static_cast<UINT>(width * 4),
+        static_cast<UINT>(width * height * 4)
+    );
 }
 
 void Renderer::TextureDataUpdate(int xoffset, int yoffset, int width, int height, void* data, int level)
 {
-    Context& c = this->getContext();
+    Context& c = getContext();
     int idx = c.textureIdx;
 
     D3D11_TEXTURE2D_DESC desc;
@@ -150,14 +164,14 @@ void Renderer::TextureDataUpdate(int xoffset, int yoffset, int width, int height
         level,
         &box,
         data,
-        width * 4,
-        width * height * 4
+        static_cast<UINT>(width * 4),
+        static_cast<UINT>(width * height * 4)
     );
 }
 
 void Renderer::TextureSetParam(int param, int value)
 {
-    Context& c = this->getContext();
+    Context& c = getContext();
     int idx = c.textureIdx;
 
     switch (param)
@@ -197,7 +211,7 @@ void Renderer::TextureDynamicUpdateEnd()
 
 void Renderer::UpdateTextureState(bool bVertex)
 {
-    Context& c = this->getContext();
+    Context& c = getContext();
     ID3D11SamplerState* pSampler = GetManagedSamplerState();
 
     if (bVertex)
@@ -212,7 +226,8 @@ HRESULT Renderer::LoadTextureData(const char* szFilename, D3DXIMAGE_INFO* pSrcIn
     memset(&image, 0, sizeof(image));
     image.version = PNG_IMAGE_VERSION;
 
-    png_image_begin_read_from_file(&image, szFilename);
+    if (!png_image_begin_read_from_file(&image, szFilename))
+        return -1;
 
     // TODO(3UR): why crash?
     //if ((image.format & 3u) > 1)
@@ -235,7 +250,8 @@ HRESULT Renderer::LoadTextureData(BYTE* pbData, DWORD dwBytes, D3DXIMAGE_INFO* p
     memset(&image, 0, sizeof(image));
     image.version = PNG_IMAGE_VERSION;
 
-    png_image_begin_read_from_memory(&image, pbData, dwBytes);
+    if (!png_image_begin_read_from_memory(&image, pbData, dwBytes))
+        return -1;
 
     // TODO(3UR): why crash?
     //if ((image.format & 3u) > 1)
@@ -280,7 +296,7 @@ HRESULT Renderer::SaveTextureDataToMemory(void* pOutput, int outputCapacity, int
 
     png_image_write_to_stdio(&image, NULL, 0, ppDataIn, 0, NULL, user_write_data, user_flush_data);
 
-    *outputLength = (int)(dataCurr - dataStart);
+    *outputLength = static_cast<int>(dataCurr - dataStart);
     return S_OK;
 }
 
