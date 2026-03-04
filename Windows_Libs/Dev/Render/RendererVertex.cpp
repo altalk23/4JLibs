@@ -28,14 +28,14 @@ SOFTWARE.
 void Renderer::DrawVertexBuffer(C4JRender::ePrimitiveType PrimitiveType, int count, ID3D11Buffer *buffer, C4JRender::eVertexType vType,
                                 C4JRender::ePixelShaderType psType)
 {
-    PROFILER_SCOPE("Renderer::DrawVertexBuffer", "DrawVertexBuffer", MP_RED2)
+    PROFILER_SCOPE("Renderer::DrawVertexBuffer", "DrawVertexBuffer", MP_RED2);
     Renderer::Context &c = getContext();
     ID3D11DeviceContext *d3d11 = c.m_pDeviceContext;
 
     int drawCount = count;
     bool indexed = false;
 
-    PROFILER_SCOPE("Renderer::DrawVertexBuffer", "DrawVertexSetup", MP_RED2)
+    PROFILER_SCOPE("Renderer::DrawVertexBuffer", "DrawVertexSetup", MP_RED2);
     DrawVertexSetup(vType, psType, PrimitiveType, &drawCount, &indexed);
     StateUpdate();
 
@@ -52,7 +52,7 @@ void Renderer::DrawVertexBuffer(C4JRender::ePrimitiveType PrimitiveType, int cou
 void Renderer::DrawVertexSetup(C4JRender::eVertexType vType, C4JRender::ePixelShaderType psType, C4JRender::ePrimitiveType PrimitiveType, int *count,
                                bool *indexed)
 {
-    PROFILER_SCOPE("Renderer::DrawVertexSetup", "DrawVertexSetup", MP_RED2)
+    PROFILER_SCOPE("Renderer::DrawVertexSetup", "DrawVertexSetup", MP_RED2);
     Renderer::Context &c = getContext();
     ID3D11DeviceContext *d3d11 = c.m_pDeviceContext;
 
@@ -129,7 +129,7 @@ void Renderer::DrawVertexSetup(C4JRender::eVertexType vType, C4JRender::ePixelSh
 void Renderer::DrawVertices(C4JRender::ePrimitiveType PrimitiveType, int count, void *vertices, C4JRender::eVertexType vType,
                             C4JRender::ePixelShaderType psType)
 {
-    PROFILER_SCOPE("Renderer::DrawVertices", "DrawVertices", MP_RED2)
+    PROFILER_SCOPE("Renderer::DrawVertices", "DrawVertices", MP_RED2);
     Renderer::Context &c = getContext();
     ID3D11DeviceContext *d3d11 = c.m_pDeviceContext;
     Renderer::CommandBuffer *commandBuffer = c.commandBuffer;
@@ -150,7 +150,7 @@ void Renderer::DrawVertices(C4JRender::ePrimitiveType PrimitiveType, int count, 
     int drawCount = count;
     bool indexed = false;
 
-    PROFILER_SCOPE("Renderer::DrawVertices", "DrawVertexSetup", MP_RED2)
+    PROFILER_SCOPE("Renderer::DrawVertices", "DrawVertexSetup", MP_RED2);
     DrawVertexSetup(vType, psType, PrimitiveType, &drawCount, &indexed);
 
     const UINT stride = vertexStrideTable[vType];

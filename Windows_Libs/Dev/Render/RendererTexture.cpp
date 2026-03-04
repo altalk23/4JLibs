@@ -30,71 +30,100 @@ unsigned char* dataStart;
 unsigned char *dataCurr;
 unsigned char *dataEnd;
 
-DXGI_FORMAT Renderer::textureFormats[] = { DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_UNKNOWN };
+DXGI_FORMAT Renderer::textureFormats[] = { 
+    DXGI_FORMAT_R8G8B8A8_UNORM, 
+    DXGI_FORMAT_UNKNOWN 
+};
 
-void user_write_data_init(unsigned char* pBuffer, int size)
+// these are here because they are used before they are defined
+// its fine like that and the order of everything matches ida so we have to put these here
+void user_flush_data(png_struct_def *png_ptr);
+void user_write_data(png_struct_def *png_ptr, unsigned char *src, size_t length);
+
+HRESULT Renderer::LoadTextureData(BYTE* pbData, DWORD dwBytes, D3DXIMAGE_INFO* pSrcInfo, int** ppDataOut)
 {
-    dataStart = pBuffer;
-    dataCurr = pBuffer;
-    dataEnd = pBuffer + size;
+    PROFILER_SCOPE("Renderer::LoadTextureData_Memory", "LoadTextureData_Memory", MP_PURPLE4);
+    png_image image;
+    memset(&image, 0, sizeof(image));
+    image.version = PNG_IMAGE_VERSION;
+
+    png_image_begin_read_from_memory(&image, pbData, dwBytes);
+
+    if (PNG_IMAGE_FAILED(image))
+        return E_FAIL;
+
+    image.format = PNG_FORMAT_BGRA;
+
+    *ppDataOut = new int[image.width * image.height];
+    if (!*ppDataOut || !png_image_finish_read(&image, NULL, *ppDataOut, NULL, NULL))
+        return E_FAIL;
+
+    pSrcInfo->Width = image.width;
+    pSrcInfo->Height = image.height;
+    return S_OK;
 }
 
-int user_write_data_bytes_written()
+HRESULT Renderer::LoadTextureData(const char* szFilename, D3DXIMAGE_INFO* pSrcInfo, int** ppDataOut)
 {
-    return static_cast<int>(dataCurr - dataStart);
+    PROFILER_SCOPE("Renderer::LoadTextureData_File", "LoadTextureData_File", MP_PURPLE4);
+    png_image image;
+    memset(&image, 0, sizeof(image));
+    image.version = PNG_IMAGE_VERSION;
+
+    png_image_begin_read_from_file(&image, szFilename);
+
+    if (PNG_IMAGE_FAILED(image))
+        return E_FAIL;
+
+    image.format = PNG_FORMAT_BGRA;
+
+    *ppDataOut = new int[image.width * image.height];
+    if (!*ppDataOut || !png_image_finish_read(&image, NULL, *ppDataOut, NULL, NULL))
+        return E_FAIL;
+
+    pSrcInfo->Width = image.width;
+    pSrcInfo->Height = image.height;
+    return S_OK;
 }
 
-void user_write_data(png_struct_def* png_ptr, unsigned char* src, size_t length)
+HRESULT Renderer::SaveTextureData(const char* szFilename, D3DXIMAGE_INFO* pSrcInfo, int* ppDataOut)
 {
-    int bytesToWrite = static_cast<int>(dataEnd - dataCurr);
-    if (static_cast<int>(length) < bytesToWrite)
-        bytesToWrite = static_cast<int>(length);
+    PROFILER_SCOPE("Renderer::SaveTextureData", "SaveTextureData", MP_PURPLE4);
+    png_image image;
+    memset(&image, 0, sizeof(image));
 
-    memcpy(dataCurr, src, bytesToWrite);
-    dataCurr += bytesToWrite;
+    image.width = pSrcInfo->Width;
+    image.height = pSrcInfo->Height;
+    image.version = PNG_IMAGE_VERSION;
+    image.format = PNG_FORMAT_BGRA;
+
+    png_image_write_to_file(&image, szFilename, NULL, ppDataOut, NULL, NULL);
+    return S_OK;
 }
 
-void user_flush_data(png_struct_def* png_ptr)
+HRESULT Renderer::SaveTextureDataToMemory(void* pOutput, int outputCapacity, int* outputLength, int width, int height, int* ppDataIn)
 {
-    // TODO(3UR): this is for a different platform? it's empty in Render_PC.lib but not Render.lib
-}
+    PROFILER_SCOPE("Renderer::SaveTextureDataToMemory", "SaveTextureDataToMemory", MP_PURPLE4);
+    png_image image;
+    memset(&image, 0, sizeof(image));
 
-int Renderer::TextureCreate()
-{
-    PROFILER_SCOPE("Renderer::TextureCreate", "TextureCreate", MP_PURPLE4)
-    for (int i = 0; i < MAX_TEXTURES; i++)
-    {
-        if (!m_textures[i].allocated)
-        {
-            m_textures[i].texture = NULL;
-            m_textures[i].allocated = true;
-            m_textures[i].mipLevels = 1;
-            m_textures[i].textureFormat = 0;
-            return i;
-        }
-    }
-    return -1;
-}
+    image.width = width;
+    image.height = height;
+    dataEnd = (BYTE *)pOutput + outputCapacity;
+    image.version = PNG_IMAGE_VERSION;
+    image.format = PNG_FORMAT_BGRA;
+    dataStart = (BYTE*)pOutput;
+    dataCurr = (BYTE*)pOutput;
 
-void Renderer::TextureFree(int idx)
-{
-    PROFILER_SCOPE("Renderer::TextureFree", "TextureFree", MP_PURPLE4)
-    if (m_textures[idx].texture)
-    {
-        m_textures[idx].texture->Release();
-        m_textures[idx].texture = NULL;
-    }
-    if (m_textures[idx].view)
-    {
-        m_textures[idx].view->Release();
-        m_textures[idx].view = NULL;
-    }
-    m_textures[idx].allocated = false;
+    png_image_write_to_stdio(&image, NULL, NULL, ppDataIn, NULL, NULL, user_write_data, user_flush_data);
+
+    *outputLength = (int)(dataCurr - dataStart);
+    return S_OK;
 }
 
 void Renderer::TextureBind(int idx)
 {
-    PROFILER_SCOPE("Renderer::TextureBind", "TextureBind", MP_PURPLE4)
+    PROFILER_SCOPE("Renderer::TextureBind", "TextureBind", MP_PURPLE4);
     if (idx == -1)
         idx = defaultTextureIndex;
 
@@ -111,7 +140,7 @@ void Renderer::TextureBind(int idx)
 
 void Renderer::TextureBindVertex(int idx)
 {
-    PROFILER_SCOPE("Renderer::TextureBindVertex", "TextureBindVertex", MP_PURPLE4)
+    PROFILER_SCOPE("Renderer::TextureBindVertex", "TextureBindVertex", MP_PURPLE4);
     if (idx == -1)
         idx = defaultTextureIndex;
 
@@ -123,21 +152,26 @@ void Renderer::TextureBindVertex(int idx)
     UpdateTextureState(true);
 }
 
-void Renderer::TextureSetTextureLevels(int levels)
+int Renderer::TextureCreate()
 {
-    Context& c = getContext();
-    m_textures[c.textureIdx].mipLevels = levels;
-}
-
-int Renderer::TextureGetTextureLevels()
-{
-    Context& c = getContext();
-    return m_textures[c.textureIdx].mipLevels;
+    PROFILER_SCOPE("Renderer::TextureCreate", "TextureCreate", MP_PURPLE4);
+    for (int i = 0; i < MAX_TEXTURES; i++)
+    {
+        if (!m_textures[i].allocated)
+        {
+            m_textures[i].texture = NULL;
+            m_textures[i].allocated = true;
+            m_textures[i].mipLevels = 1;
+            m_textures[i].samplerParams = 0;
+            return i;
+        }
+    }
+    return -1;
 }
 
 void Renderer::TextureData(int width, int height, void* data, int level, C4JRender::eTextureFormat format)
 {
-    PROFILER_SCOPE("Renderer::TextureData", "TextureData", MP_PURPLE4)
+    PROFILER_SCOPE("Renderer::TextureData", "TextureData", MP_PURPLE4);
     Context& c = getContext();
     int idx = c.textureIdx;
 
@@ -163,10 +197,10 @@ void Renderer::TextureData(int width, int height, void* data, int level, C4JRend
     }
 
     c.m_pDeviceContext->UpdateSubresource(
-        m_textures[idx].texture, 
-        level, 
-        NULL, 
-        data, 
+        m_textures[idx].texture,
+        level,
+        NULL,
+        data,
         static_cast<UINT>(width * 4),
         static_cast<UINT>(width * height * 4)
     );
@@ -174,14 +208,14 @@ void Renderer::TextureData(int width, int height, void* data, int level, C4JRend
 
 void Renderer::TextureDataUpdate(int xoffset, int yoffset, int width, int height, void* data, int level)
 {
-    PROFILER_SCOPE("Renderer::TextureDataUpdate", "TextureDataUpdate", MP_PURPLE4)
+    PROFILER_SCOPE("Renderer::TextureDataUpdate", "TextureDataUpdate", MP_PURPLE4);
     Context& c = getContext();
     int idx = c.textureIdx;
 
-    D3D11_TEXTURE2D_DESC desc;
+    D3D11_TEXTURE2D_DESC desc = {};
     m_textures[idx].texture->GetDesc(&desc);
 
-    D3D11_BOX box;
+    D3D11_BOX box = {};
     box.left = xoffset;
     box.top = yoffset;
     box.right = xoffset + width;
@@ -197,6 +231,35 @@ void Renderer::TextureDataUpdate(int xoffset, int yoffset, int width, int height
         static_cast<UINT>(width * 4),
         static_cast<UINT>(width * height * 4)
     );
+}
+
+void Renderer::TextureDynamicUpdateEnd() {}
+void Renderer::TextureDynamicUpdateStart() {}
+
+void Renderer::TextureFree(int idx)
+{
+    PROFILER_SCOPE("Renderer::TextureFree", "TextureFree", MP_PURPLE4);
+    m_textures[idx].texture->Release();
+    m_textures[idx].view->Release();
+    m_textures[idx].view = NULL;
+    m_textures[idx].allocated = false;
+    m_textures[idx].texture = NULL;
+}
+
+void Renderer::TextureGetStats() {}
+
+ID3D11ShaderResourceView* Renderer::TextureGetTexture(int idx)
+{
+    if (idx < MAX_TEXTURES) {
+        if (m_textures[idx].allocated) return m_textures[idx].view;
+    }
+    return NULL;
+}
+
+int Renderer::TextureGetTextureLevels()
+{
+    Context& c = getContext();
+    return m_textures[c.textureIdx].mipLevels;
 }
 
 void Renderer::TextureSetParam(int param, int value)
@@ -229,14 +292,10 @@ void Renderer::TextureSetParam(int param, int value)
     }
 }
 
-void Renderer::TextureDynamicUpdateStart()
+void Renderer::TextureSetTextureLevels(int levels)
 {
-    // TODO(3UR): this is for a different platform? it's empty in Render_PC.lib but not Render.lib
-}
-
-void Renderer::TextureDynamicUpdateEnd()
-{
-    // TODO(3UR): this is for a different platform? it's empty in Render_PC.lib but not Render.lib
+    Context& c = getContext();
+    m_textures[c.textureIdx].mipLevels = levels;
 }
 
 void Renderer::UpdateTextureState(bool bVertex)
@@ -250,101 +309,25 @@ void Renderer::UpdateTextureState(bool bVertex)
         c.m_pDeviceContext->PSSetSamplers(0, 1, &pSampler);
 }
 
-HRESULT Renderer::LoadTextureData(const char* szFilename, D3DXIMAGE_INFO* pSrcInfo, int** ppDataOut)
+void user_flush_data(png_struct_def* png_ptr) {}
+void user_write_data(png_struct_def* png_ptr, unsigned char* src, size_t length)
 {
-    PROFILER_SCOPE("Renderer::LoadTextureData_File", "LoadTextureData_File", MP_PURPLE4)
-    png_image image;
-    memset(&image, 0, sizeof(image));
-    image.version = PNG_IMAGE_VERSION;
+    int bytesToWrite = static_cast<int>(dataEnd - dataCurr);
+    if (static_cast<int>(length) < bytesToWrite)
+        bytesToWrite = (int)length;
 
-    if (!png_image_begin_read_from_file(&image, szFilename))
-        return -1;
-
-    // TODO(3UR): why crash?
-    //if ((image.format & 3u) > 1)
-    //    return -1;
-
-    image.format = PNG_FORMAT_BGRA;
-
-    *ppDataOut = new int[image.width * image.height];
-    if (!*ppDataOut || !png_image_finish_read(&image, NULL, *ppDataOut, 0, NULL))
-        return -1;
-
-    pSrcInfo->Width = image.width;
-    pSrcInfo->Height = image.height;
-    return S_OK;
+    std::memcpy(dataCurr, src, bytesToWrite);
+    dataCurr += bytesToWrite;
 }
 
-HRESULT Renderer::LoadTextureData(BYTE* pbData, DWORD dwBytes, D3DXIMAGE_INFO* pSrcInfo, int** ppDataOut)
+int user_write_data_bytes_written()
 {
-    PROFILER_SCOPE("Renderer::LoadTextureData_Memory", "LoadTextureData_Memory", MP_PURPLE4)
-    png_image image;
-    memset(&image, 0, sizeof(image));
-    image.version = PNG_IMAGE_VERSION;
-
-    if (!png_image_begin_read_from_memory(&image, pbData, dwBytes))
-        return -1;
-
-    // TODO(3UR): why crash?
-    //if ((image.format & 3u) > 1)
-    //    return -1;
-
-    image.format = PNG_FORMAT_BGRA;
-
-    *ppDataOut = new int[image.width * image.height];
-    if (!*ppDataOut || !png_image_finish_read(&image, NULL, *ppDataOut, 0, NULL))
-        return -1;
-
-    pSrcInfo->Width = image.width;
-    pSrcInfo->Height = image.height;
-    return S_OK;
+    return static_cast<int>(dataCurr - dataStart);
 }
 
-HRESULT Renderer::SaveTextureData(const char* szFilename, D3DXIMAGE_INFO* pSrcInfo, int* ppDataOut)
+void user_write_data_init(unsigned char* pBuffer, int size)
 {
-    PROFILER_SCOPE("Renderer::SaveTextureData", "SaveTextureData", MP_PURPLE4)
-    png_image image;
-    memset(&image, 0, sizeof(image));
-    image.width = pSrcInfo->Width;
-    image.height = pSrcInfo->Height;
-    image.version = PNG_IMAGE_VERSION;
-    image.format = PNG_FORMAT_BGRA;
-
-    png_image_write_to_file(&image, szFilename, 0, ppDataOut, 0, NULL);
-    return S_OK;
-}
-
-HRESULT Renderer::SaveTextureDataToMemory(void* pOutput, int outputCapacity, int* outputLength, int width, int height, int* ppDataIn)
-{
-    PROFILER_SCOPE("Renderer::SaveTextureDataToMemory", "SaveTextureDataToMemory", MP_PURPLE4)
-    png_image image;
-    memset(&image, 0, sizeof(image));
-    image.width = width;
-    image.height = height;
-    image.version = PNG_IMAGE_VERSION;
-    image.format = PNG_FORMAT_BGRA;
-
-    dataEnd = (BYTE*)pOutput + outputCapacity;
-    dataStart = (BYTE*)pOutput;
-    dataCurr = (BYTE*)pOutput;
-
-    png_image_write_to_stdio(&image, NULL, 0, ppDataIn, 0, NULL, user_write_data, user_flush_data);
-
-    *outputLength = static_cast<int>(dataCurr - dataStart);
-    return S_OK;
-}
-
-void Renderer::TextureGetStats()
-{
-    // TODO(3UR): this is for a different platform? it's empty in Render_PC.lib but not Render.lib
-}
-
-ID3D11ShaderResourceView* Renderer::TextureGetTexture(int idx)
-{
-    if ((unsigned int)idx <= 511)
-    {
-        if (m_textures[idx].allocated)
-            return m_textures[idx].view;
-    }
-    return NULL;
+    dataStart = pBuffer;
+    dataCurr = pBuffer;
+    dataEnd = pBuffer + size;
 }
